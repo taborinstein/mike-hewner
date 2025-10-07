@@ -298,7 +298,10 @@
 (define top-level-eval
   (lambda (form)
     ; later we may add things that are not expressions.
-    (eval-exp (empty-env) form)))
+    (let ([result (eval-exp (empty-env) form)])
+      (if (proc-val? result)
+          '<interpreter-procedure>
+          result))))
 
 ; eval-exp is the main component of the interpreter
 
@@ -338,7 +341,7 @@
         ; (displayln args)
         ; (display "rands ")
         ; (displayln rands)
-        (apply-proc proc-value args))]
+        (apply-proc proc-value args))] ; args ; (map (lambda (x) (if (proc-val? x) (cases proc-val x [prim-proc (op) op] [closure-proc (params bodies env) 'nyi]) x)) args)
      [let-exp
       (vars init-exps bodies) ; IC-ADDED - added basic let interpretation
       (let* ([eval-init-exps
@@ -374,8 +377,8 @@
 
 (define apply-prim-proc
   (lambda (prim-proc args)
-    (displayln prim-proc)
-    (displayln args)
+    (displayln (list "app" prim-proc))
+    (displayln (list "app" args))
     (case prim-proc
       [(+) (apply + args)]
       [(-) (apply - args)]
@@ -395,7 +398,7 @@
       [(vector?) (vector? (car args))]
       [(number?) (number? (car args))]
       [(symbol?) (symbol? (car args))]
-      [(procedure?) (procedure? (car args))]
+      [(procedure?) (if (proc-val? (car args)) #t #f)] ; (procedure? (car args)) ; (if (proc-val? (car args)) #t #f)
       [(not) (not (car args))]
       [(add1) (+ (1st args) 1)]
       [(sub1) (- (1st args) 1)]
