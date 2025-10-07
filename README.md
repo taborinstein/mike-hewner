@@ -1,5 +1,6 @@
 # mike-hewner
-Ode to Buffalo, the Code Whisperer
+## Ode to Buffalo, the Code Whisperer
+
 In halls where circuits softly hum,
 And syntax dances on each thumb,
 There dwells a sage, both wise and keen—
