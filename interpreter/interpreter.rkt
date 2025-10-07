@@ -35,7 +35,13 @@
 ; datatype for procedures.  At first there is only one
 ; kind of procedure, but more kinds will be added later.
 
-(define-datatype proc-val proc-val? [prim-proc (name symbol?)])
+(define-datatype proc-val proc-val? ; IC-Suggestion - Add lambda datatype here; needs 1. lst of params, 2. code (expression object), 3. current environment
+  [prim-proc
+   (name symbol?)]
+  [closure-proc
+   (params (lambda (x) (andmap symbol? x)))
+   (body expression?)
+   (env environment?)])
 
 ;-------------------+
 ;                   |
@@ -71,7 +77,7 @@
   (lambda (datum)
     (cond
       ; (if (equal? datum 'quote) (lit-exp ''quote)
-      [(symbol? datum) (lit-exp datum)]
+      [(symbol? datum) (var-exp datum)]
       [(number? datum) (lit-exp datum)]
       [(string? datum) (lit-exp datum)]
       [(boolean? datum) (lit-exp datum)]
@@ -176,6 +182,35 @@
       cons
       car
       cdr
+      cadr
+      caar
+    cadr
+    cdar
+    cddr
+    caaar
+    caadr
+    cadar
+    caddr
+    cdaar
+    cdadr
+    cddar
+    cdddr
+    caaaar
+    caaadr
+    caadar
+    caaddr
+    cadaar
+    cadadr
+    caddar
+    cadddr
+    cdaaar
+    cdaadr
+    cdadar
+    cdaddr
+    cddaar
+    cddadr
+    cdddar
+    cddddr
       list
       null?
       assq
@@ -208,7 +243,7 @@
     (cases environment
            global-env
            [empty-env-record () (error 'global-env "PANIC: This should never occur!")]
-           [extended-env-recor
+           [extended-env-record
             (syms vals env)
             (let ([pos (list-find-position sym syms)])
               (if (number? pos)
@@ -301,21 +336,24 @@
     (cases proc-val
            proc-value
            [prim-proc (op) (apply-prim-proc op args)]
+           [closure-proc (params body env) (let ((closure-env (extend-env params args env)))
+            (eval-exp closure-env body))]
            ; You will add other cases
            [else (error 'apply-proc "Attempt to apply bad procedure: ~s" proc-value)])))
 
 (define apply-prim-proc
   (lambda (prim-proc args)
     (case prim-proc
-      [(+) (+ (1st args) (2nd args))]
-      [(-) (- (1st args) (2nd args))]
-      [(*) (* (1st args) (2nd args))]
-      [(/) (/ (1st args) (2nd args))]
-      [(=) (= (1st args) (2nd args))]
-      [(>) (> (1st args) (2nd args))]
-      [(>=) (>= (1st args) (2nd args))]
-      [(<) (< (1st args) (2nd args))]
-      [(<=) (<= (1st args) (2nd args))]
+      [(+) (apply + args)]
+      [(-) (apply - args)]
+      [(*) (apply * args)]
+      [(/) (apply / args)]
+      [(=) (apply = args)]
+      [(>) (apply > args)]
+      [(>=) (apply >= args)]
+      [(<) (apply < args)]
+      [(<=) (apply <= args)]
+      [(zero?) (zero? (car args))]
       [(null?) (null? (car args))]
       [(eq?) (eq? (1st args) (2nd args))]
       [(equal?) (equal? (1st args) (2nd args))]
@@ -329,8 +367,37 @@
       [(add1) (+ (1st args) 1)]
       [(sub1) (- (1st args) 1)]
       [(cons) (cons (1st args) (2nd args))]
-      [(car) (caar (args))]
-      [(cdr) (cdar (args))]
+      [(car) (caar args)]
+      [(caar) (caar (car args))]
+      [(cadr) (cadr (car args))]
+      [(cdar) (cdar (car args))]
+      [(cddr) (cddr (car args))]
+      [(caaar) (caaar (car args))]
+      [(caadr) (caadr (car args))]
+      [(cadar) (cadar (car args))]
+      [(caddr) (caddr (car args))]
+      [(cdaar) (cdaar (car args))]
+      [(cdadr) (cdadr (car args))]
+      [(cddar) (cddar (car args))]
+      [(cdddr) (cdddr (car args))]
+      [(caaaar) (caaaar (car args))]
+      [(caaadr) (caaadr (car args))]
+      [(caadar) (caadar (car args))]
+      [(caaddr) (caaddr (car args))]
+      [(cadaar) (cadaar (car args))]
+      [(cadadr) (cadadr (car args))]
+      [(caddar) (caddar (car args))]
+      [(cadddr) (cadddr (car args))]
+      [(cdaaar) (cdaaar (car args))]
+      [(cdaadr) (cdaadr (car args))]
+      [(cdadar) (cdadar (car args))]
+      [(cdaddr) (cdaddr (car args))]
+      [(cddaar) (cddaar (car args))]
+      [(cddadr) (cddadr (car args))]
+      [(cdddar) (cdddar (car args))]
+      [(cddddr) (cddddr (car args))]
+      [(cdr) (cdar args)]
+      [(cdr) (cadar args)]
       [(list) args]
       [(length) (length (car args))]
       [(assq) (assq (car args))]
