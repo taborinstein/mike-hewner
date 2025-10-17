@@ -377,8 +377,8 @@
 
 (define apply-prim-proc
   (lambda (prim-proc args)
-    (displayln (list "app" prim-proc))
-    (displayln (list "app" args))
+    ;(displayln (list "app" prim-proc))
+    ;(displayln (list "app" args))
     (case prim-proc
       [(+) (apply + args)]
       [(-) (apply - args)]
@@ -459,9 +459,9 @@
 (define eval-one-exp (lambda (x) (top-level-eval (parse-exp x))))
 ; (eval-exp '(empty-env-record) '(app-exp (lit-exp quoquotete) ((lit-exp (())))))
 ; (displayln (parse-exp '((lambda (x) (+ x 7)) (if #f 2 3))))
-(parse-exp '(procedure? list))
+;(parse-exp '(procedure? list))
 ; (parse-exp '(list +))
-(eval-one-exp '(procedure? list))
+;(eval-one-exp '(procedure? list))
 ; (eval-one-exp '(list list))
 ; (eval-one-exp '((lambda (x) (+ x 7)) (if #f 2 3)))
 ; (eval-one-exp '(lambda (x) x))
