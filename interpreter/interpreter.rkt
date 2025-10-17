@@ -3,7 +3,11 @@
 (require "../chez-init.rkt")
 (provide eval-one-exp)
 (require racket/trace)
-
+(provide add-macro-interpreter)
+(define add-macro-interpreter (lambda x (error "nyi")))
+(provide quasiquote-enabled?)
+(define quasiquote-enabled?
+  (lambda () (error "nyi"))) ; make this return 'yes if you're trying quasiquote
 ;-------------------+
 ;                   |
 ;   sec:DATATYPES   |
@@ -13,25 +17,27 @@
 ; parsed expression.  You'll probably want to replace this
 ; code with your expression datatype from A11b
 
-(define-datatype expression
-                 expression?
-                 [var-exp ; variable references
-                  (id symbol?)]
-                 [lit-exp ; "Normal" data.  Did I leave out any types?
-                  (datum (lambda (x)
-                           (ormap (lambda (pred) (pred x))
-                                  (list number? vector? boolean? symbol? string? pair? null?))))]
-                 [lambda-exp (params list?) (bodies (listof expression?))]
-                 [quote-exp (quot list?)]
-                 [let-exp (param list?) (init-exp (listof expression?)) (body expression?)]
-                 [letrec-exp (param list?) (init-exp (listof expression?)) (body expression?)]
-                 [let*-exp (param list?) (init-exp (listof expression?)) (body expression?)]
-                 [set!-exp (id symbol?) (body expression?)]
-                 [if-exp (test expression?) (then expression?) (else expression?)]
-                 [begin-exp (bodies (listof expression?))]
-                 [app-exp ; applications
-                  (rator expression?)
-                  (rands (list-of? expression?))])
+(define-datatype
+ expression
+ expression?
+ [var-exp ; variable references
+  (id symbol?)]
+ [lit-exp ; "Normal" data.  Did I leave out any types?
+  (datum (lambda (x)
+           (ormap (lambda (pred) (pred x))
+                  (list number? vector? boolean? symbol? string? pair? null?))))]
+ [lambda-exp (params list?) (bodies (listof expression?))]
+ [lambda-2-exp (params expression?) (bodies (listof expression?))]
+ [quote-exp (quot list?)]
+ [let-exp (param list?) (init-exp (listof expression?)) (bodies (listof expression?))]
+ [letrec-exp (param list?) (init-exp (listof expression?)) (bodies (listof expression?))]
+ [let*-exp (param list?) (init-exp (listof expression?)) (bodies (listof expression?))]
+ [set!-exp (id symbol?) (body expression?)]
+ [if-exp (test expression?) (then expression?) (else expression?)]
+ [begin-exp (bodies (listof expression?))]
+ [app-exp ; applications
+  (rator expression?)
+  (rands (list-of? expression?))])
 
 ; datatype for procedures.  At first there is only one
 ; kind of procedure, but more kinds will be added later.
@@ -40,7 +46,8 @@
  proc-val
  proc-val? ; IC-Suggestion - Add lambda datatype here; needs 1. lst of params, 2. code (expression object), 3. current environment
  [prim-proc (name symbol?)]
- [closure-proc (params (listof symbol?)) (body (listof expression?)) (env environment?)])
+ [closure-proc (params (listof symbol?)) (body (listof expression?)) (env environment?)]
+ [closure-proc-2 (param symbol?) (body (listof expression?)) (env environment?)])
 
 ;-------------------+
 ;                   |
@@ -100,12 +107,13 @@
                   (not (null? (filter (lambda (a) (not (symbol? a))) (2nd datum)))))
              (error 'parse-exp "bad abstraction parameter: ~s" datum)]
             [else
-             (lambda-exp (lit-exp (2nd datum))
-                         (map (λ (d)
-                                (if (list? d)
-                                    (parse-exp d)
-                                    (lit-exp d)))
-                              (cddr datum)))])]
+             ((if (list? (2nd datum)) lambda-exp lambda-2-exp) (lit-exp (2nd datum))
+                                                               (map (λ (d)
+                                                                      ; (if (list? d)
+                                                                      (parse-exp d)
+                                                                      ; (lit-exp d))
+                                                                      )
+                                                                    (cddr datum)))])]
          [(eqv? (1st datum) 'if)
           (cond
             [(not (= 4 (length datum))) (error 'parse-exp "bad if-statement size: ~s" datum)]
@@ -118,20 +126,18 @@
             [else
              (cond
                [(eqv? (1st datum) 'let)
-                (let-exp (parse-exp (2nd datum))
-                         (if (list? (3rd datum))
-                             (parse-exp (3rd datum))
-                             (lit-exp (cddr datum))))]
+                (let-exp (map lit-exp (map car (2nd datum)))
+                         (map parse-exp (map cadr (2nd datum)))
+                         (map parse-exp (cddr datum)))]
+               [(eqv? (1st datum) 'let*)
+                (let*-exp (map lit-exp (map car (2nd datum)))
+                          (map parse-exp (map cadr (2nd datum)))
+                          (map parse-exp (cddr datum)))]
                [(eqv? (1st datum) 'letrec)
                 (letrec-exp (parse-exp (2nd datum))
                             (if (list? (3rd datum))
                                 (parse-exp (3rd datum))
-                                (lit-exp (cddr datum))))]
-               [(eqv? (1st datum) 'let*)
-                (let*-exp (parse-exp (2nd datum))
-                          (if (list? (3rd datum))
-                              (parse-exp (3rd datum))
-                              (lit-exp (cddr datum))))])])]
+                                (lit-exp (cddr datum))))])])]
          [(eqv? (1st datum) 'set!)
           (cond
             [(not (= 3 (length datum))) (error 'parse-exp "bad set! size: ~s" datum)]
@@ -218,6 +224,7 @@
       cddadr
       cdddar
       cddddr
+      displayln
       list
       null?
       assq
@@ -237,7 +244,10 @@
       symbol?
       vector-set!
       display
-      newline))
+      newline
+      map
+      apply
+      and))
 (define init-env ; for now, our initial global environment only contains
   (extend-env ; procedure names.  Recall that an environment associates
    *prim-proc-names* ;  a value (not an expression) with an identifier.
@@ -299,9 +309,7 @@
   (lambda (form)
     ; later we may add things that are not expressions.
     (let ([result (eval-exp (empty-env) form)])
-      (if (proc-val? result)
-          '<interpreter-procedure>
-          result))))
+      (if (proc-val? result) '<interpreter-procedure> result))))
 
 ; eval-exp is the main component of the interpreter
 
@@ -312,12 +320,8 @@
      exp
      [lit-exp (datum) datum]
      [quote-exp (datum) (cadr (cadr datum))]
-     [lambda-exp
-      (args bodies)
-      ; (λ (x) 0)
-      (closure-proc (eval-exp env args) bodies env)
-      ; (eval-exp env (cddr args)) ; (λ (x) 'a)
-      ]
+     [lambda-exp (args bodies) (closure-proc (eval-exp env args) bodies env)]
+     [lambda-2-exp (args bodies) (closure-proc-2 (eval-exp env args) bodies env)]
      [begin-exp
       (bodies)
       (let ([evals (map (λ (p) (eval-exp env p)) bodies)])
@@ -325,7 +329,6 @@
             'void-value-implement-this-later
             (car (reverse evals))))]
      [letrec-exp (a b c) 'nyi]
-     [let*-exp (a b c) 'nyi]
      [set!-exp (a b) 'nyi]
      [if-exp
       (if-cond if-then if-else)
@@ -337,11 +340,7 @@
       (rator rands)
       (let ([proc-value (eval-exp env rator)] ; IC-ADDED - passed environment through
             [args (eval-rands env rands)]) ; IC-ADDED - passed environment through
-        ; (display "args ")
-        ; (displayln args)
-        ; (display "rands ")
-        ; (displayln rands)
-        (apply-proc proc-value args))] ; args ; (map (lambda (x) (if (proc-val? x) (cases proc-val x [prim-proc (op) op] [closure-proc (params bodies env) 'nyi]) x)) args)
+        (apply-proc env proc-value args))] ; args ; (map (lambda (x) (if (proc-val? x) (cases proc-val x [prim-proc (op) op] [closure-proc (params bodies env) 'nyi]) x)) args)
      [let-exp
       (vars init-exps bodies) ; IC-ADDED - added basic let interpretation
       (let* ([eval-init-exps
@@ -349,36 +348,46 @@
                env
                init-exps)] ; IC-ADDED - evaluate initialization expression with parent environment
              [let-env (extend-env
-                       vars
+                       (map (λ (x) (eval-exp env x)) vars)
                        eval-init-exps
                        env)]) ; IC-ADDED -  create let environment with new initialization expressions
-        (eval-exp let-env
-                  (car bodies)))] ; IC-ADDED - evaluate the body of the let with new environment
+        (car (reverse (map (λ (x) (eval-exp let-env x))
+                           bodies))))] ; IC-ADDED - evaluate the body of the let with new environment
+     [let*-exp
+      (vars init-exps bodies)
+      (eval-exp env
+                (if (null? vars)
+                    (let-exp vars init-exps bodies)
+                    (let-exp (list (car vars))
+                             (list (car init-exps))
+                             (list (let*-exp (cdr vars) (cdr init-exps) bodies)))))]
      [else (error 'eval-exp "Bad abstract syntax: ~a" exp)])))
 ; evaluate the list of operands, putting results into a list
 
 (define eval-rands (lambda (env rands) (map (λ (x) (eval-exp env x)) rands)))
-
+; (trace apply-env)
 ;  Apply a procedure to its arguments.
 ;  At this point, we only have primitive procedures.
 ;  User-defined procedures will be added later.
 
 (define apply-proc
-  (lambda (proc-value args)
+  (lambda (env proc-value args)
     (cases proc-val
            proc-value
-           [prim-proc (op) (apply-prim-proc op args)]
+           [prim-proc (op) (apply-prim-proc env op args)]
            [closure-proc
             (params bodies env)
             (let ([closure-env (extend-env params args env)])
+              (car (reverse (map (λ (body) (eval-exp closure-env body)) bodies))))]
+           [closure-proc-2
+            (param bodies env)
+            (let ([closure-env (extend-env (list param) (list args) env)])
               (car (reverse (map (λ (body) (eval-exp closure-env body)) bodies))))]
            ; You will add other cases
            [else (error 'apply-proc "Attempt to apply bad procedure: ~s" proc-value)])))
 
 (define apply-prim-proc
-  (lambda (prim-proc args)
-    ;(displayln (list "app" prim-proc))
-    ;(displayln (list "app" args))
+  (lambda (env prim-proc args)
     (case prim-proc
       [(+) (apply + args)]
       [(-) (apply - args)]
@@ -398,7 +407,10 @@
       [(vector?) (vector? (car args))]
       [(number?) (number? (car args))]
       [(symbol?) (symbol? (car args))]
-      [(procedure?) (if (proc-val? (car args)) #t #f)] ; (procedure? (car args)) ; (if (proc-val? (car args)) #t #f)
+      [(procedure?)
+       (if (proc-val? (car args))
+           #t
+           #f)] ; (procedure? (car args)) ; (if (proc-val? (car args)) #t #f)
       [(not) (not (car args))]
       [(add1) (+ (1st args) 1)]
       [(sub1) (- (1st args) 1)]
@@ -432,6 +444,7 @@
       [(cddadr) (cddadr (car args))]
       [(cdddar) (cdddar (car args))]
       [(cddddr) (cddddr (car args))]
+      [(displayln) (displayln (car args))]
       [(cdr) (cdar args)]
       [(cdr) (cadar args)]
       [(list) args]
@@ -445,6 +458,25 @@
       [(vector-set!) (vector-set! (1st args) (2nd args) (3rd args))]
       [(display) (display (car args))]
       [(newline) (newline)]
+      [(map)
+       (let tail ([proc (1st args)]
+                  [lst (cadr args)])
+         (if (null? lst)
+             '()
+             (append (list (apply-proc env proc (list (car lst)))) (tail proc (cdr lst)))))]
+      [(apply) (apply-proc env (1st args) (2nd args))]
+      [(and)
+       (let and-recur ([lst args]
+                       [cur #t])
+         (displayln args)
+         (cond
+           [(null? lst) cur]
+           [(null? (cdr lst)) (and cur (car lst))]
+           [(not (car lst)) #f]
+           [(not (cadr lst)) #f]
+           [(and (not (eqv? #f (car lst))) (not (eqv? #f (cadr lst))))
+            (and-recur (cdr lst) (cadr lst))]
+           [else #f]))]
       [else (error 'apply-prim-proc "Bad primitive procedure name: ~s" prim-proc)])))
 (define rep ; "read-eval-print" loop.
   (lambda ()
@@ -457,14 +489,21 @@
       (rep)))) ; tail-recursive, so stack doesn't grow.
 
 (define eval-one-exp (lambda (x) (top-level-eval (parse-exp x))))
-; (eval-exp '(empty-env-record) '(app-exp (lit-exp quoquotete) ((lit-exp (())))))
-; (displayln (parse-exp '((lambda (x) (+ x 7)) (if #f 2 3))))
-;(parse-exp '(procedure? list))
-; (parse-exp '(list +))
-;(eval-one-exp '(procedure? list))
-; (eval-one-exp '(list list))
-; (eval-one-exp '((lambda (x) (+ x 7)) (if #f 2 3)))
-; (eval-one-exp '(lambda (x) x))
-;
-; (eval-exp (empty-env) '(app-exp))
-; (trace eval-exp)
+; (parse-exp '(
+;             (lambda (v)
+;                 (and 3
+;                 ((lambda () (vector-set! v 1 42) #f))
+;                     ((lambda ()(vector-set! v 1 88)))
+;                         ) v) (vector 3 4 5)))
+; (parse-exp '(let* () 4))
+; (parse-exp '(let () 4 3 5))
+(eval-one-exp '((and 3
+                     (begin
+                       (displayln "first called")
+                       42)
+                     (begin
+                       (displayln "second called")
+                       #f)
+                     (begin
+                       (displayln "third called")
+                       88))))
