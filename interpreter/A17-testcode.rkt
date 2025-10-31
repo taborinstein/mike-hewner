@@ -41,7 +41,12 @@
     [(begin (reset-global-env) (eval-one-exp '(define rotate-linear (letrec ((reverse (lambda (lyst revlist) (if (null? lyst) revlist (reverse (cdr lyst) (cons (car lyst) revlist)))))) (lambda (los) (let loop ((los los) (sofar '())) (cond ((null? los) los) ((null? (cdr los)) (cons (car los) (reverse sofar '()))) (else (loop (cdr los) (cons (car los) sofar))))))))) (eval-one-exp '(rotate-linear '(1 2 3 4 5 6 7 8)))) '(8 1 2 3 4 5 6 7) 9] ; (run-test named-let-and-define 3)
     [(begin (reset-global-env) (eval-one-exp '(define fib-memo (let ((max 2) (sofar '((1 . 1) (0 . 1)))) (lambda (n) (if (< n max) (cdr (assq n sofar)) (let* ((v1 (fib-memo (- n 1))) (v2 (fib-memo (- n 2))) (v3 (+ v2 v1))) (set! max (+ n 1)) (set! sofar (cons (cons n v3) sofar)) v3)))))) (eval-one-exp '(fib-memo 15))) 987 9] ; (run-test named-let-and-define 4)
     [(begin (reset-global-env) (eval-one-exp '(define f1 (lambda (x) (f2 (+ x 1))))) (eval-one-exp '(define f2 (lambda (x) (* x x)))) (eval-one-exp '(f1 3))) 16 7] ; (run-test named-let-and-define 5)
-    [(begin (reset-global-env) (eval-one-exp '(define ns-list-recur (lambda (seed item-proc list-proc) (letrec ((helper (lambda (ls) (if (null? ls) seed (let ((c (car ls))) (if (or (pair? c) (null? c)) (list-proc (helper c) (helper (cdr ls))) (item-proc c (helper (cdr ls))))))))) helper)))) (eval-one-exp '(define append (lambda (s t) (if (null? s) t (cons (car s) (append (cdr s) t)))))) (eval-one-exp '(define reverse* (let ((snoc (lambda (x y) (append y (list x))))) (ns-list-recur '() snoc snoc)))) (eval-one-exp '(reverse* '(1 (2 3) (((4))) () 5)))) '(5 () (((4))) (3 2) 1) 10] ; (run-test named-let-and-define 6)
+    [(begin (reset-global-env) (eval-one-exp '(define ns-list-recur (lambda (seed item-proc list-proc) (letrec ((helper (lambda (ls) (if (null? ls) seed (let ((c (car ls))) 
+        (if 
+            (or 
+                (pair? c) 
+                (null? c)
+            ) (list-proc (helper c) (helper (cdr ls))) (item-proc c (helper (cdr ls))))))))) helper)))) (eval-one-exp '(define append (lambda (s t) (if (null? s) t (cons (car s) (append (cdr s) t)))))) (eval-one-exp '(define reverse* (let ((snoc (lambda (x y) (append y (list x))))) (ns-list-recur '() snoc snoc)))) (eval-one-exp '(reverse* '(1 (2 3) (((4))) () 5)))) '(5 () (((4))) (3 2) 1) 10] ; (run-test named-let-and-define 6)
   )
 
   (set!-global-variables equal? ; (run-test set!-global-variables)
@@ -53,7 +58,72 @@
 
   (order-matters! equal? ; (run-test order-matters!)
     [(eval-one-exp '(let ((r 2) (ls '(3)) (count 7)) (let loop () (if (> count 0) (begin (set! ls (cons r ls)) (set! r (+ r count)) (set! count (- count 1)) (loop)))) (list r ls count))) '(30 (29 27 24 20 15 9 2 3) 0) 12] ; (run-test order-matters! 1)
-    [(eval-one-exp '(begin (define latest 1) (define total 1) (or (begin (set! latest (+ latest 1)) (set! total (+ total latest)) (> total 50)) (begin (set! latest (+ latest 1)) (set! total (+ total latest)) (> total 50)) (begin (set! latest (+ latest 1)) (set! total (+ total latest)) (> total 50)) (begin (set! latest (+ latest 1)) (set! total (+ total latest)) (> total 50)) (begin (set! latest (+ latest 1)) (set! total (+ total latest)) (> total 50)) (begin (set! latest (+ latest 1)) (set! total (+ total latest)) (> total 50)) (begin (set! latest (+ latest 1)) (set! total (+ total latest)) (> total 50)) (begin (set! latest (+ latest 1)) (set! total (+ total latest)) (> total 50)) (begin (set! latest (+ latest 1)) (set! total (+ total latest)) (> total 50)) (begin (set! latest (+ latest 1)) (set! total (+ total latest)) (> total 50))) total)) 55 12] ; (run-test order-matters! 2)
+    [(eval-one-exp 
+    '(begin 
+        (define latest 1) 
+        (define total 1) 
+        (or 
+            (begin 
+                (set! latest (+ latest 1)) 
+                (set! total (+ total latest)) 
+              ; (display "latest ") (displayln latest) (display "total ") (displayln total) (display "( > total 50) ") (displayln (> total 50))
+                (> total 50)
+            ) 
+            (begin 
+                (set! latest (+ latest 1)) 
+                (set! total (+ total latest)) 
+              ; (display "latest ") (displayln latest) (display "total ") (displayln total) (display "( > total 50) ") (displayln (> total 50))
+                (> total 50)
+            ) 
+            (begin 
+                (set! latest (+ latest 1)) 
+                (set! total (+ total latest)) 
+              ; (display "latest ") (displayln latest) (display "total ") (displayln total) (display "( > total 50) ") (displayln (> total 50))
+                (> total 50)
+            ) 
+            (begin 
+                (set! latest (+ latest 1)) 
+                (set! total (+ total latest)) 
+              ; (display "latest ") (displayln latest) (display "total ") (displayln total) (display "( > total 50) ") (displayln (> total 50))
+                (> total 50)
+            ) 
+            (begin 
+                (set! latest (+ latest 1)) 
+                (set! total (+ total latest)) 
+              ; (display "latest ") (displayln latest) (display "total ") (displayln total) (display "( > total 50) ") (displayln (> total 50))
+                (> total 50)
+            ) 
+            (begin 
+                (set! latest (+ latest 1)) 
+                (set! total (+ total latest)) 
+              ; (display "latest ") (displayln latest) (display "total ") (displayln total) (display "( > total 50) ") (displayln (> total 50))
+                (> total 50)
+            ) 
+            (begin 
+                (set! latest (+ latest 1)) 
+                (set! total (+ total latest)) 
+              ; (display "latest ") (displayln latest) (display "total ") (displayln total) (display "( > total 50) ") (displayln (> total 50))
+                (> total 50)
+            ) 
+            (begin 
+                (set! latest (+ latest 1)) 
+                (set! total (+ total latest)) 
+              ; (display "latest ") (displayln latest) (display "total ") (displayln total) (display "( > total 50) ") (displayln (> total 50))
+                (> total 50)
+            ) 
+            (begin 
+                (set! latest (+ latest 1))
+                (set! total (+ total latest))
+              ; (display "latest ") (displayln latest) (display "total ") (displayln total) (display "( > total 50) ") (displayln (> total 50))
+                (> total 50)
+            ) 
+            (begin 
+                (set! latest (+ latest 1)) 
+                (set! total (+ total latest)) 
+              ; (display "latest ") (displayln latest) (display "total ") (displayln total) (display "( > total 50) ") (displayln (> total 50))
+                (> total 50)
+            )
+        ) total)) 55 12] ; (run-test order-matters! 2)
   )
 
   (misc equal? ; (run-test misc)
