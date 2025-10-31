@@ -510,7 +510,7 @@
            [begin-exp
             (bodies)
             (if (null? bodies)
-                '()
+                (void)
                 (check-proc-val (car (reverse (map (λ (x)
                                                      (if (equal? (car x) 'define-exp)
                                                          (do-define (cadr x) (caddr x))
@@ -522,9 +522,6 @@
 
 (define eval-exp
   (lambda (env exp)
-    ; (display "\x1b[31m")
-    ; (display exp)
-    ; (displayln "\x1b[0m")
     (cases
      expression
      exp
