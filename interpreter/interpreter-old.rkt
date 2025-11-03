@@ -510,7 +510,7 @@
            [begin-exp
             (bodies)
             (if (null? bodies)
-                '()
+                (void)
                 (check-proc-val (car (reverse (map (λ (x)
                                                      (if (equal? (car x) 'define-exp)
                                                          (do-define (cadr x) (caddr x))
@@ -558,6 +558,11 @@
       (rator rands)
       (let ([proc-value (eval-exp env rator)] ; IC-ADDED - passed environment through
             [args (eval-rands env rands)]) ; IC-ADDED - passed environment through
+         (display "\x1b[32m")
+    (display "EVAL-RANDS")
+    (display " ")
+    (display args)
+    (displayln "\x1b[0m")
         (apply-proc env proc-value args))] ; args ; (map (lambda (x) (if (proc-val? x) (cases proc-val x [prim-proc (op) op] [closure-proc (params bodies env) 'nyi]) x)) args)
      [let-exp
       (vars init-exps bodies) ; IC-ADDED - added basic let interpretation
