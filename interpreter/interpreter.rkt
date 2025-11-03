@@ -491,7 +491,7 @@
 
 (define map-cps
   (lambda (proc lst k)
-  (display "\x1b[1m")
+    (display "\x1b[1m")
     (display "map-cps")
     (display " ")
     (display lst)
@@ -500,88 +500,96 @@
     (displayln "\x1b[0m")
     (if (null? lst)
         (apply-k k '())
-        
-        (proc (car lst) 
-        (begin
-        (display "map-cps is passing")
-    (display " ")
-    (display lst)
-    ; (display " ")
-    ; (display v)
-    (displayln "\x1b[0m")
-    (apk-map-lambda proc lst k)))
-        
-        )))
-(define-datatype continuation
-                 continuation?
-                 [init-k]
-                 [apk-map-lambda (proc procedure?) (lst list?) (k continuation?)]
-                 [apk-map-cons (first (λ (x) #t)) (k continuation?)]
-                 [apk-lambda (bodies list?) (env environment?) (k continuation?)]
-                 [apk-lambda-2 (bodies list?) (env environment?) (k continuation?)]
-                 [apk-begin (k continuation?)]
-                 [apk-if (if-then expression?) (if-else expression?) (env environment?) (k continuation?)]
-                 [apk-if-2 (if-then expression?) (env environment?) (k continuation?)]
-                 [apk-app-a (rands list?) (env environment?) (k continuation?)]
-                 [apk-app-b (proc-val (λ (x) #t)) (env environment?) (k continuation?)]
-                 [apk-let-a (vars list?) (bodies list?) (env environment?) (k continuation?)]
-                 [apk-let-b (eval-init-exps list?) (bodies list?) (env environment?) (k continuation?)]
-                 [apk-let-c (k continuation?)]
-                 )
+
+        (proc (car lst)
+              (begin
+                (display "map-cps is passing")
+                (display " ")
+                (display lst)
+                ; (display " ")
+                ; (display v)
+                (displayln "\x1b[0m")
+                (apk-map-lambda proc lst k))))))
+(define-datatype
+ continuation
+ continuation?
+ [init-k]
+ [apk-map-lambda (proc procedure?) (lst list?) (k continuation?)]
+ [apk-map-cons (first (λ (x) #t)) (k continuation?)]
+ [apk-lambda (bodies list?) (env environment?) (k continuation?)]
+ [apk-lambda-2 (bodies list?) (env environment?) (k continuation?)]
+ [apk-begin (k continuation?)]
+ [apk-if (if-then expression?) (if-else expression?) (env environment?) (k continuation?)]
+ [apk-if-2 (if-then expression?) (env environment?) (k continuation?)]
+ [apk-app-a (rands list?) (env environment?) (k continuation?)]
+ [apk-app-b (proc-val (λ (x) #t)) (env environment?) (k continuation?)]
+ [apk-let-a (vars list?) (bodies list?) (env environment?) (k continuation?)]
+ [apk-let-b (eval-init-exps list?) (bodies list?) (env environment?) (k continuation?)]
+ [apk-let-c (k continuation?)])
 (define apply-k
   (lambda (k v)
-    (cases
-     continuation
-     k
-     [init-k () v]
-     [apk-map-lambda (proc lst k) (begin 
-     (display "\x1b[35m")
-    (display "apk-map-lambda")
-    (display " ")
-    ; (display proc)
-    ; (display " ")
-    (display lst)
-    (displayln "\x1b[0m")
-    )(map-cps proc (cdr lst) (apk-map-cons v k))]
-     [apk-map-cons (first k) (apply-k k (cons first v))]
-     [apk-lambda (bodies env k) (apply-k k (closure-proc v bodies env))]
-     [apk-lambda-2 (bodies env k) (apply-k k (closure-proc-2 v bodies env))]
-     [apk-begin (k) (apply-k k (if (null? v) (void) (car (reverse v))))]
-     [apk-if (if-then if-else env k)
-        (if v (eval-exp env if-then k) (eval-exp env if-else k))]
-     [apk-if-2 (if-then env k)
-        (if v (eval-exp env if-then k) (apply-k k (void)))]
-    [apk-app-a (rands env k) 
-    (display "\x1b[33m")
-    (display "apk-app-a")
-    (display " ")
-    (display rands)
-    ; (display " ")
-    ; (display v)
-    (displayln "\x1b[0m")
-            (eval-rands env rands (apk-app-b v env k))
-            
-        
-        ]
-    [apk-app-b (proc-val env k)
-              (display "\x1b[31m")
-    (display "apk-app-b")
-    (display " ")
-    (display proc-val)
-    (display " ")
-    (display v)
-    (displayln "\x1b[0m")
-        (apply-proc env proc-val v)]
-    [apk-let-a (vars bodies env k) 
-        (map-cps (λ (x) (eval-exp env x k)) vars (apk-let-b v bodies env k))]
-    [apk-let-b (eval-init-exps bodies env k)
-        (let* ([let-env (extend-env eval-init-exps env)])
-            (map-cps (λ (x) (eval-exp let-env x k)) bodies (apk-let-c k)))]
-    [apk-let-c (k) (apply-k k (car (reverse v)))]
-        
-        )
-    ))
-    
+    (cases continuation
+           k
+           [init-k () v]
+           [apk-map-lambda
+            (proc lst k)
+            (begin
+              (display "\x1b[35m")
+              (display "apk-map-lambda")
+              (display " ")
+              ; (display proc)
+              ; (display " ")
+              (display lst)
+              (displayln "\x1b[0m"))
+            (map-cps proc (cdr lst) (apk-map-cons v k))]
+           [apk-map-cons (first k) (apply-k k (cons first v))]
+           [apk-lambda (bodies env k) (apply-k k (closure-proc v bodies env))]
+           [apk-lambda-2 (bodies env k) (apply-k k (closure-proc-2 v bodies env))]
+           [apk-begin
+            (k)
+            (apply-k k
+                     (if (null? v)
+                         (void)
+                         (car (reverse v))))]
+           [apk-if
+            (if-then if-else env k)
+            (if v
+                (eval-exp env if-then k)
+                (eval-exp env if-else k))]
+           [apk-if-2
+            (if-then env k)
+            (if v
+                (eval-exp env if-then k)
+                (apply-k k (void)))]
+           [apk-app-a
+            (rands env k)
+            (display "\x1b[33m")
+            (display "apk-app-a")
+            (display " ")
+            (display rands)
+            ; (display " ")
+            ; (display v)
+            (displayln "\x1b[0m")
+            (eval-rands env rands (apk-app-b v env k))]
+           [apk-app-b
+            (proc-val env k)
+            (display "\x1b[31m")
+            (display "apk-app-b")
+            (display " ")
+            (display proc-val)
+            (display " ")
+            (display v)
+            (displayln "\x1b[0m")
+            (apply-proc env proc-val v)]
+           [apk-let-a
+            (vars bodies env k)
+            (map-cps (λ (x) (eval-exp env x k)) vars (apk-let-b v bodies env k))]
+           [apk-let-b
+            (eval-init-exps bodies env k)
+            (let* ([let-env (extend-env eval-init-exps env)])
+              (map-cps (λ (x) (eval-exp let-env x k)) bodies (apk-let-c k)))]
+           [apk-let-c (k) (apply-k k (car (reverse v)))])))
+
 ; To be added in assignment 18a.
 
 ;-------------------+
@@ -615,49 +623,46 @@
 
 (define eval-exp
   (lambda (env exp k)
-    
+
     (cases
      expression
      exp
-     [lit-exp (datum) (begin (display "lit-exp ") (displayln datum) (apply-k k datum))]
+     [lit-exp
+      (datum)
+      (begin
+        (display "lit-exp ")
+        (displayln datum)
+        (apply-k k datum))]
      [quote-exp (datum) (apply-k k (cadr (cadr datum)))]
      [lambda-exp (args bodies) (eval-exp env args (apk-lambda bodies env k))]
      [lambda-2-exp (args bodies) (eval-exp env args (apk-lambda-2 bodies env k))]
-     [begin-exp
-      (bodies)
-      (map-cps (lambda (p) (eval-exp env p k)) bodies (apk-begin k))
-      ]
+     [begin-exp (bodies) (map-cps (lambda (p) (eval-exp env p k)) bodies (apk-begin k))]
      [letrec-exp
       (procnames idss bodiess letrec-bodies)
       (eval-exp (extend-recur-env procnames idss bodiess env) (begin-exp letrec-bodies) k)]
-     [set!-exp (id body) (apply-k k 'nyi)];(set-ref! (apply-env-ref env id) (eval-exp env body))]
+     [set!-exp (id body) (apply-k k 'nyi)] ;(set-ref! (apply-env-ref env id) (eval-exp env body))]
      [define-exp (id body) (apply-k k 'nyi)]
-     [if-exp
-      (if-cond if-then if-else)
-      (eval-exp env if-cond (apk-if if-then if-else env k))
-          ]
-     [if-2-exp
-      (if-cond if-then)
-            (eval-exp env if-cond (apk-if-2 if-then env k))]
+     [if-exp (if-cond if-then if-else) (eval-exp env if-cond (apk-if if-then if-else env k))]
+     [if-2-exp (if-cond if-then) (eval-exp env if-cond (apk-if-2 if-then env k))]
      [var-exp (id) (apply-k k (apply-env env id))]
      [app-exp
       (rator rands)
       (begin
-       (display "\x1b[32m")
-    (display "app-exp")
-    (display " ")
-    (display rator)
-    (display " ")
-    (display rands)
-    (displayln "\x1b[0m")
-      (eval-exp env rator (apk-app-a rands env k))
-      )
-      ] ; args ; (map (lambda (x) (if (proc-val? x) (cases proc-val x [prim-proc (op) op] [closure-proc (params bodies env) 'nyi]) x)) args)
+        (display "\x1b[32m")
+        (display "app-exp")
+        (display " ")
+        (display rator)
+        (display " ")
+        (display rands)
+        (displayln "\x1b[0m")
+        (eval-exp env rator (apk-app-a rands env k)))] ; args ; (map (lambda (x) (if (proc-val? x) (cases proc-val x [prim-proc (op) op] [closure-proc (params bodies env) 'nyi]) x)) args)
      [let-exp
       (vars init-exps bodies) ; IC-ADDED - added basic let interpretation
-    ;   (eval-rands )
-        (eval-rands env init-exps (apk-let-a vars env k))
-      ] ; IC-ADDED - evaluate the body of the let with new environment
+      ;   (eval-rands )
+      (eval-rands
+       env
+       init-exps
+       (apk-let-a vars env k))] ; IC-ADDED - evaluate the body of the let with new environment
      [let*-exp
       (vars init-exps bodies)
       (eval-exp env
@@ -666,29 +671,26 @@
                     (let-exp (list (car vars))
                              (list (car init-exps))
                              (list (let*-exp (cdr vars) (cdr init-exps) bodies)))))]
-    ;  [and-exp (rands) (apply-proc env (prim-proc 'and) (eval-rands env rands))] ; temporary
-    ;  [or-exp (rands) (apply-proc env (prim-proc 'or) (eval-rands env rands))] ; temporary
+     ;  [and-exp (rands) (apply-proc env (prim-proc 'and) (eval-rands env rands))] ; temporary
+     ;  [or-exp (rands) (apply-proc env (prim-proc 'or) (eval-rands env rands))] ; temporary
      [and-exp (rands) (apply-k k 'nyi)] ; temporary
      [or-exp (rands) (apply-k k 'nyi)] ; temporary
-     [cond-exp
-      (tests thens)
-      (apply-k k 'nyi)]
+     [cond-exp (tests thens) (apply-k k 'nyi)]
      [void-exp (const) (apply-k k (void))]
      [else (error 'eval-exp "Bad abstract syntax: ~a" exp)])))
 ; evaluate the list of operands, putting results into a list
 ; (trace eval-exp)
 (define eval-rands
   (lambda (env rands k)
-  (begin
-  (display "\x1b[34m")
-    (display "eval-rands")
-    (display " ")
-    (display rands)
-    ; (display " ")
-    ; (display v)
-    (displayln "\x1b[0m")
-    (map-cps (lambda (exp k2) (eval-exp env exp k2)) rands k)))
-)
+    (begin
+      (display "\x1b[34m")
+      (display "eval-rands")
+      (display " ")
+      (display rands)
+      ; (display " ")
+      ; (display v)
+      (displayln "\x1b[0m")
+      (map-cps (lambda (exp k2) (eval-exp env exp k2)) rands k))))
 ; (trace apply-env)
 ;  Apply a procedure to its arguments.
 ;  At this point, we only have primitive procedures.
